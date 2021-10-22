@@ -94,6 +94,64 @@ class AIPlayer(Player):
         else:
             return [(0, 0)]
     
+
+    currPop = []
+    nextEval = 1
+    currentFitness = []
+    numGames = 20
+    populationSize = 6
+
+
+    def initPopulation():
+        myPath = Path("./AI/vinoya21_grohm22_population.txt")
+        if myPath.is_file():
+            currPop = myPath.read()
+        else:
+            for gene in currPop:
+                for value in gene:
+                    value = random.randint(-10.0, 10.0)
+        for fitness in currentFitness:
+            fitness = 0
+        nextEval = 1
+
+
+    def generateChildren(parent1, parent2):
+        listChildren = []
+        child1 = []
+        child2 = []
+        slice1 = parent1[0:5]
+        slice2 = parent2[6:11]
+        slice3 = parent2[0:5]
+        slice4 = parent1[6:11]
+        child1.append(slice1)
+        child1.append(slice2)
+        child2.append(slice3)
+        child2.append(slice4)
+        listChildren.append(child1)
+        listChildren.append(child2)
+        return listChildren
+
+
+    def nextGeneration():
+        nextGen = []
+        currChildren = []
+        for gene in range(0, 4, 1):
+            currChildren = generateChildren(currPop[gene], currPop[gene + 1])
+            nextGen.append(currChildren[0])
+            nextGen.append(currChildren[1])
+            currChildren.clear()
+        currPop.clear()
+        while(len(currPop) != 6):
+            fitGene = max(currPop, key = lambda x: x[14])
+            currPop.append(fitGene)
+            nextGen.remove(fitGene)
+        nextGen.clear()
+        popFile = open("vinoya21_grohm22_population.txt", "w")
+        popFile.write(currPop)
+        popFile.close()
+
+
+
     ##
     #getMove
     #Description: Gets the next move from the Player.
@@ -266,7 +324,17 @@ class AIPlayer(Player):
     # This agent doens't learn
     #
     def registerWin(self, hasWon):
-        #method template, not implemented
+        if hasWon:
+            currPop[nextEval - 1][12] += 1
+        else:
+            currPop[nextEval - 1][13] += 1
+        currPop[nextEval - 1][14] = currPop[nextEval - 1][12]
+            / currPop[nextEval - 1][13]
+        if currPop[nextEval - 1][12] + currPop[nextEval - 1][13] == numGames:
+            nextEval += 1
+        if nextEval > populationSize:
+            nextGeneration()
+            nextEval = 1
         pass
 
     ##
