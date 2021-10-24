@@ -19,6 +19,7 @@ from typing import Dict, List
 import unittest
 from pathlib import Path
 import os
+import ast
 
 ##
 #AIPlayer
@@ -40,7 +41,7 @@ class AIPlayer(Player):
     ##
     def __init__(self, inputPlayerId):
         super(AIPlayer,self).__init__(inputPlayerId, "Genetic")
-        self.populationSize = 6
+        self.populationSize = 8
         self.currentPopulation = []
         self.nextEval = None
         self.currentFitness = []
@@ -118,7 +119,11 @@ class AIPlayer(Player):
         myPath = Path("./vinoya21_grohm22_population.txt")
         if myPath.is_file():
             f = open(myPath, 'r')
-            self.currentPopulation = f.read()
+            contents = f.read().splitlines()
+            for line in contents:
+                gene = ast.literal_eval(line)
+                self.currentPopulation.append(gene)
+                self.currentFitness.append(gene[14])
             f.close()
         
         #initialize the gene list with random values from -10 to 10
@@ -140,9 +145,11 @@ class AIPlayer(Player):
     #Return: List of ints
     ##
     def initGene(self) -> List[int]:
-        newGene = [None]*12 #initialize a list with 12 empty spots
+        newGene = [None]*15 #initialize a list with 15 empty spots
         for i in range(0, 12, 1):
             newGene[i] = random.randint(-10.0, 10.0)
+
+        newGene[14] = 0
         
         return newGene
 
@@ -159,38 +166,59 @@ class AIPlayer(Player):
     def generateChildren(self, parent1, parent2):
         #maybe make the children creation more random?
         listChildren = []
-        child1 = [None]*12
-        child2 = [None]*12
-        slice1 = parent1[0:5]
-        slice2 = parent2[6:11]
-        slice3 = parent2[0:5]
-        slice4 = parent1[6:11]
-        child1[0:5] = slice1
-        child1[6:11] = slice2
-        child2[0:5] = slice3
-        child2[6:11] = slice4
+        child1 = [None]*15
+        child2 = [None]*15
+        slice1 = parent1[0:6]
+        slice2 = parent2[6:12]
+        slice3 = parent2[0:6]
+        slice4 = parent1[6:12]
+        child1[0:6] = slice1
+        child1[6:12] = slice2
+        child2[0:6] = slice3
+        child2[6:12] = slice4
         listChildren.append(child1)
         listChildren.append(child2)
+        #set default fitness (in spot 14) to 0
+        child1[14] = 0
+        child2[14] = 0
         return listChildren
 
-
+    ##
+    #nextGeneration
+    #Description: Creates the next generation of genes
+    #
+    #Parameters:
+    #   self
+    #
+    #Return: None
+    ##
     def nextGeneration(self):
-        nextGen = []
-        currChildren = []
-        for gene in range(0, 4, 1):
-            currChildren = self.generateChildren(self.currentPopulation[gene], self.currentPopulation[gene + 1])
-            nextGen.append(currChildren[0])
-            nextGen.append(currChildren[1])
-            currChildren.clear()
-        self.currentPopulation.clear()
-        while(len(self.currentPopulation) != 6):
-            fitGene = max(self.currentPopulation, key = lambda x: x[14])
-            self.currentPopulation.append(fitGene)
-            nextGen.remove(fitGene)
-        nextGen.clear()
-        popFile = open("vinoya21_grohm22_population.txt", "w")
-        popFile.write(self.currentPopulation)
-        popFile.close()
+        fittestParents = []
+        newGeneration = []
+
+        #select the top 4 in the population sorted by fitness
+        
+        fittestParents = sorted(self.currentPopulation, key=lambda x: x[14])
+
+        fittestParents = fittestParents[0:4]
+
+        #might need to fix the currentFitness list to reflect on this
+        #or the currentFitness list might not even be needed
+
+        #will need to adjust for a larger population size
+        #this gives us 24 children
+        for i in range(0, 4, 1):
+            for j in range(0, 4, 1):
+                if i != j:
+                    for child in self.generateChildren(fittestParents[i], fittestParents[j]):
+                        newGeneration.append(child)
+
+        self.currentPopulation = newGeneration
+
+        f = open("vinoya21_grohm22_population.txt", "w")
+        for gene in newGeneration:
+            f.write(str(gene) + "\n")
+        f.close()
 
 
 
@@ -638,7 +666,6 @@ class TestCreateNode(unittest.TestCase):
         self.assertEqual(player.nextEval, None)
         self.assertEqual(player.currentFitness, [])
         self.assertEqual(player.numGames, 20)
-        self.assertEqual(player.populationSize, 6)
         player.initPopulation()
         self.assertNotEqual(player.currentPopulation, [])
         self.assertNotEqual(player.currentFitness, [])
@@ -649,8 +676,11 @@ class TestCreateNode(unittest.TestCase):
 
         gene = player.initGene()
 
-        for i in gene:
-            self.assertAlmostEqual(i, 0, delta=10)
+        for i in range(0, 12, 1):
+
+            self.assertAlmostEqual(gene[i], 0, delta=10)
+
+        self.assertEqual(gene[14], 0)
 
     def test_generateChildren(self):
         player = AIPlayer(0)
@@ -666,6 +696,20 @@ class TestCreateNode(unittest.TestCase):
         self.assertEqual(child1[6:11], parent2[6:11])
         self.assertEqual(child2[0:5], parent2[0:5])
         self.assertEqual(child2[6:11], parent1[6:11])
+
+    def test_nextGeneration(self):
+        player = AIPlayer (0)
+
+        player.initPopulation()
+
+        old = player.currentPopulation
+
+        player.nextGeneration()
+
+        new = player.currentPopulation
+
+        self.assertNotEqual(old, new)
+
 
 if __name__ == '__main__':
     unittest.main()
