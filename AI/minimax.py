@@ -17,6 +17,9 @@ from GameState import *
 from AIPlayerUtils import *
 from typing import Dict, List
 import unittest
+from pathlib import Path
+import os
+import ast
 
 ##
 #AIPlayer
@@ -37,8 +40,15 @@ class AIPlayer(Player):
     #   cpy           - whether the player is a copy (when playing itself)
     ##
     def __init__(self, inputPlayerId):
-        super(AIPlayer,self).__init__(inputPlayerId, "MiniMaxing_vinoya21_nguyens22")
+        super(AIPlayer,self).__init__(inputPlayerId, "Genetic")
+        self.populationSize = 8
+        self.currentPopulation = []
+        self.nextEval = None
+        self.currentFitness = []
+        self.numGames = 20
         
+
+
     
     ##
     #getPlacement
@@ -95,60 +105,120 @@ class AIPlayer(Player):
             return [(0, 0)]
     
 
-    currPop = []
-    nextEval = 1
-    currentFitness = []
-    numGames = 20
-    populationSize = 6
-
-
-    def initPopulation():
-        myPath = Path("./AI/vinoya21_grohm22_population.txt")
+    ##
+    #initPopulation
+    #Description: Method to initialize the population of genes
+    #
+    #Parameters:
+    #   self
+    #
+    #Return: None
+    ##
+    def initPopulation(self):
+        #get the path for the population.txt file and read if it exists
+        myPath = Path("./vinoya21_grohm22_population.txt")
         if myPath.is_file():
-            currPop = myPath.read()
+            f = open(myPath, 'r')
+            contents = f.read().splitlines()
+            for line in contents:
+                gene = ast.literal_eval(line)
+                self.currentPopulation.append(gene)
+                self.currentFitness.append(gene[14])
+            f.close()
+        
+        #initialize the gene list with random values from -10 to 10
         else:
-            for gene in currPop:
-                for value in gene:
-                    value = random.randint(-10.0, 10.0)
-        for fitness in currentFitness:
-            fitness = 0
-        nextEval = 1
+            for i in range(self.populationSize):
+                self.currentPopulation.append(self.initGene())
+                self.currentFitness.append(0)
 
+        self.nextEval = self.currentPopulation[0] #set to the first in the list
 
-    def generateChildren(parent1, parent2):
+    ##
+    #initGene
+    #Description: Method to initialize a gene
+    #             A gene is a list of ints displaying the values
+    #
+    #Parameters:
+    #   self
+    #
+    #Return: List of ints
+    ##
+    def initGene(self) -> List[int]:
+        newGene = [None]*15 #initialize a list with 15 empty spots
+        for i in range(0, 12, 1):
+            newGene[i] = random.randint(-10.0, 10.0)
+
+        newGene[14] = 0
+        
+        return newGene
+
+    ##
+    #generateChildren
+    #Description: Generates two children from two parents
+    #
+    #Parameters:
+    #   parent1 - the first parent gene
+    #   parent2 - the second parent gene
+    #
+    #Return: List of the new children
+    ##
+    def generateChildren(self, parent1, parent2):
+        #maybe make the children creation more random?
         listChildren = []
-        child1 = []
-        child2 = []
-        slice1 = parent1[0:5]
-        slice2 = parent2[6:11]
-        slice3 = parent2[0:5]
-        slice4 = parent1[6:11]
-        child1.append(slice1)
-        child1.append(slice2)
-        child2.append(slice3)
-        child2.append(slice4)
+        child1 = [None]*15
+        child2 = [None]*15
+        slice1 = parent1[0:6]
+        slice2 = parent2[6:12]
+        slice3 = parent2[0:6]
+        slice4 = parent1[6:12]
+        child1[0:6] = slice1
+        child1[6:12] = slice2
+        child2[0:6] = slice3
+        child2[6:12] = slice4
         listChildren.append(child1)
         listChildren.append(child2)
+        #set default fitness (in spot 14) to 0
+        child1[14] = 0
+        child2[14] = 0
         return listChildren
 
+    ##
+    #nextGeneration
+    #Description: Creates the next generation of genes
+    #
+    #Parameters:
+    #   self
+    #
+    #Return: None
+    ##
+    def nextGeneration(self):
+        fittestParents = []
+        newGeneration = []
 
-    def nextGeneration():
-        nextGen = []
-        currChildren = []
-        for gene in range(0, 4, 1):
-            currChildren = generateChildren(currPop[gene], currPop[gene + 1])
-            nextGen.append(currChildren[0])
-            nextGen.append(currChildren[1])
-            currChildren.clear()
-        currPop.clear()
-        while(len(currPop) != 6):
-            fitGene = max(currPop, key = lambda x: x[14])
-            currPop.append(fitGene)
-            nextGen.remove(fitGene)
-        nextGen.clear()
-        popFile = open("vinoya21_grohm22_population.txt", "w")
-        popFile.write(currPop)
-        popFile.close()
+        #select the top 4 in the population sorted by fitness
+        
+        fittestParents = sorted(self.currentPopulation, key=lambda x: x[14])
+
+        fittestParents = fittestParents[0:4]
+
+        #might need to fix the currentFitness list to reflect on this
+        #or the currentFitness list might not even be needed
+
+        #will need to adjust for a larger population size
+        #this gives us 24 children
+        for i in range(0, 4, 1):
+            for j in range(0, 4, 1):
+                if i != j:
+                    for child in self.generateChildren(fittestParents[i], fittestParents[j]):
+                        newGeneration.append(child)
+
+        self.currentPopulation = newGeneration
+
+        f = open("vinoya21_grohm22_population.txt", "w")
+        for gene in newGeneration:
+            f.write(str(gene) + "\n")
+        f.close()
 
 
 
@@ -325,17 +395,18 @@ class AIPlayer(Player):
     #
     def registerWin(self, hasWon):
         if hasWon:
-            currPop[nextEval - 1][12] += 1
+            self.currentPopulation[self.nextEval - 1][12] += 1
         else:
-            currPop[nextEval - 1][13] += 1
-        currPop[nextEval - 1][14] = currPop[nextEval - 1][12]
-            / currPop[nextEval - 1][13]
-        if currPop[nextEval - 1][12] + currPop[nextEval - 1][13] == numGames:
-            nextEval += 1
-        if nextEval > populationSize:
-            nextGeneration()
-            nextEval = 1
+            self.currentPopulation[self.nextEval - 1][13] += 1
+        self.currentPopulation[self.nextEval - 1][14] = self.currentPopulation[self.nextEval - 1][12] / self.currentPopulation[self.nextEval - 1][13]
+        if self.currentPopulation[self.nextEval - 1][12] + self.currentPopulation[self.nextEval - 1][13] == self.numGames:
+            self.nextEval += 1
+        if self.nextEval > self.populationSize:
+            self.nextGeneration()
+            self.nextEval = 1
         pass
+
+
 
     ##
     #utility
@@ -460,6 +531,7 @@ class TestCreateNode(unittest.TestCase):
         # Calculations below.
 
         # toRet = 0
+
         # toRet = 1 - (1 / (toRet + 1)) = 1
         # if toRet <= 0:
         #     toRet = 0.01 = 0.01
@@ -586,6 +658,57 @@ class TestCreateNode(unittest.TestCase):
         # elif toRet < 0.5:
         #     toRet = -(1 - (2 * toRet))
         self.assertAlmostEqual(player.utility(gameState), 6/11)
+
+    def test_initPopulation(self):
+        player = AIPlayer(0)
+
+        self.assertEqual(player.currentPopulation, [])
+        self.assertEqual(player.nextEval, None)
+        self.assertEqual(player.currentFitness, [])
+        self.assertEqual(player.numGames, 20)
+        player.initPopulation()
+        self.assertNotEqual(player.currentPopulation, [])
+        self.assertNotEqual(player.currentFitness, [])
+        self.assertEqual(player.nextEval, player.currentPopulation[0])
+
+    def test_initGene(self):
+        player = AIPlayer(0)
+
+        gene = player.initGene()
+
+        for i in range(0, 12, 1):
+
+            self.assertAlmostEqual(gene[i], 0, delta=10)
+
+        self.assertEqual(gene[14], 0)
+
+    def test_generateChildren(self):
+        player = AIPlayer(0)
+        parent1 = player.initGene()
+        parent2 = player.initGene()
+
+        children = player.generateChildren(parent1, parent2)
+
+        child1 = children[0]
+        child2 = children[1]
+
+        self.assertEqual(child1[0:5], parent1[0:5])
+        self.assertEqual(child1[6:11], parent2[6:11])
+        self.assertEqual(child2[0:5], parent2[0:5])
+        self.assertEqual(child2[6:11], parent1[6:11])
+
+    def test_nextGeneration(self):
+        player = AIPlayer (0)
+
+        player.initPopulation()
+
+        old = player.currentPopulation
+
+        player.nextGeneration()
+
+        new = player.currentPopulation
+
+        self.assertNotEqual(old, new)
 
 
 if __name__ == '__main__':
