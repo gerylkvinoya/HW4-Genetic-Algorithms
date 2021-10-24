@@ -17,6 +17,7 @@ from GameState import *
 from AIPlayerUtils import *
 from typing import Dict, List
 import unittest
+from pathlib import Path
 
 ##
 #AIPlayer
@@ -95,24 +96,29 @@ class AIPlayer(Player):
             return [(0, 0)]
     
 
-    currPop = []
     nextEval = 1
-    currentFitness = []
     numGames = 20
     populationSize = 6
 
 
     def initPopulation():
+        nextPop = [ [] for _ in range(6)]
         myPath = Path("./AI/vinoya21_grohm22_population.txt")
         if myPath.is_file():
-            currPop = myPath.read()
+            nextPop = myPath.read()
         else:
-            for gene in currPop:
-                for value in gene:
-                    value = random.randint(-10.0, 10.0)
-        for fitness in currentFitness:
-            fitness = 0
+            for gene in nextPop:
+                for i in range(12):
+                    value = gene.append(random.uniform(-10.0, 10.0))
         nextEval = 1
+        return nextPop
+
+    def initFitness():
+        currentFitness = [0] * 6
+        return currentFitness
+
+    currPop = initPopulation()
+    currFit = initFitness()
 
 
     def generateChildren(parent1, parent2):
@@ -141,7 +147,7 @@ class AIPlayer(Player):
             nextGen.append(currChildren[1])
             currChildren.clear()
         currPop.clear()
-        while(len(currPop) != 6):
+        while(len(currPop) != populationSize):
             fitGene = max(currPop, key = lambda x: x[14])
             currPop.append(fitGene)
             nextGen.remove(fitGene)
@@ -149,6 +155,76 @@ class AIPlayer(Player):
         popFile = open("vinoya21_grohm22_population.txt", "w")
         popFile.write(currPop)
         popFile.close()
+
+    ##
+    #expandNode
+    #
+    #Description: expands a node and discovers adjacent nodes
+    #
+    #Parameters:
+    #node: the node to be expanded
+    #
+    #Returns a list of adjacent nodes
+    def expandNode(self, node):
+        #gets all legal moves from a state
+        allMoves = listAllLegalMoves(node["state"])
+        nodeList = []
+        #goes through every move and makes a new node
+        for move in allMoves:
+            moveState = getNextState(node["state"], move)
+            nodeDict = {
+                "move": move,
+                "state": moveState,
+                "depth": node["depth"] + 1,
+                "evaluation": self.utility(moveState, move) + node["depth"] + 1,
+                "parent": node
+            }
+            nodeList.append(nodeDict)
+        
+        #returns all the new nodes
+        return nodeList
+    
+
+    ##
+    #getMove
+    #Description: Gets the next move from the Player.
+    #
+    #Parameters:
+    #   currentState - The state of the current game waiting for the player's move (GameState)
+    #
+    #Return: The Move to be made
+    ##
+    def getMove(self, currentState):
+        #lists to store nodes
+        frontierNodes = []
+        expandedNodes = []
+
+        #creates a base node
+        rootNode = {
+            "move": None,
+            "state": currentState,
+            "depth": 0,
+            "evaluation": self.utility(currentState, None),
+            "parent": None
+        }
+        frontierNodes.append(rootNode)
+
+        #expands 19 nodes before making a decision
+        while (len(expandedNodes) < 20): 
+            #expands node with lowest evalutation
+            nodeToExpand = min(frontierNodes, key = lambda node:node["evaluation"])
+            frontierNodes.remove(nodeToExpand)
+            expandedNodes.append(nodeToExpand)
+            newFrontierNodes = self.expandNode(nodeToExpand)
+            for newNode in newFrontierNodes:
+                frontierNodes.append(newNode)
+        
+        #returns the best nodes parent
+        best_node = min(frontierNodes, key = lambda node:node["evaluation"])
+        while best_node["depth"] != 1:
+            best_node = best_node["parent"]
+        
+        return best_node["move"]
 
 
 
@@ -161,7 +237,7 @@ class AIPlayer(Player):
     #
     #Return: The Move to be made
     ##
-    def getMove(self, currentState):
+    """def getMove(self, currentState):
 
         # create a root node object with a move, current state, eval, parent
         root = {
@@ -171,7 +247,7 @@ class AIPlayer(Player):
             "parent": None
         }
 
-        return self.getMiniMaxMove(root, 0, True, -100, 100)
+        return self.getMiniMaxMove(root, 0, True, -100, 100)"""
 
     ##
     #getMiniMaxMove
@@ -186,7 +262,7 @@ class AIPlayer(Player):
     #
     #Return: The Move to be made
     ##
-    def getMiniMaxMove (self, currentNode, currentDepth, myTurn, alpha, beta):
+    """def getMiniMaxMove (self, currentNode, currentDepth, myTurn, alpha, beta):
         maxDepth = 2 #the max depth for the minimax tree
 
         #get the current node's eval and state to be used later
@@ -268,7 +344,7 @@ class AIPlayer(Player):
                     if beta <= alpha:
                         break
 
-                return minScore
+                return minScore"""
 
     ##
     #getEndNode
@@ -279,7 +355,7 @@ class AIPlayer(Player):
     #
     #Return: The Move to be made
     ##
-    def getEndNode(self, currentNode):
+    """def getEndNode(self, currentNode):
 
         #base case
         #   if we find a node that is an end type return that node
@@ -303,7 +379,7 @@ class AIPlayer(Player):
             children.append(node)
         #find the best child and return it
         bestChild = max(children, key=lambda node: node.get("evaluation"))
-        return self.getEndNode(bestChild)
+        return self.getEndNode(bestChild)"""
 
     ##
     #getAttack
@@ -328,8 +404,7 @@ class AIPlayer(Player):
             currPop[nextEval - 1][12] += 1
         else:
             currPop[nextEval - 1][13] += 1
-        currPop[nextEval - 1][14] = currPop[nextEval - 1][12]
-            / currPop[nextEval - 1][13]
+        currPop[nextEval - 1][14] = currPop[nextEval - 1][12] / currPop[nextEval - 1][13]
         if currPop[nextEval - 1][12] + currPop[nextEval - 1][13] == numGames:
             nextEval += 1
         if nextEval > populationSize:
@@ -350,7 +425,7 @@ class AIPlayer(Player):
     #
     #Return: the "guess" of how good the game state is
     ##
-    def utility(self, currentState):
+    """def utility(self, currentState):
         WEIGHT = 10 #weight value for moves
 
         #will modify this toRet value based off of gamestate
@@ -446,7 +521,145 @@ class AIPlayer(Player):
         elif toRet < 0.5:
             toRet = -(1 - (2 * toRet))
 
-        return toRet
+        return toRet"""
+
+
+    # Difference in food between me and opponent
+    def foodDiff(self, currentState, weight):
+        me = currentState.whoseTurn
+        myFood = currentState.inventories[me].foodCount
+        enemyFood = currentState.inventories[1 - me].foodCount
+        return weight * (myFood - enemyFood)
+
+
+    # Difference in health between my queen and enemy queen
+    def queenHealthDiff(self, currentState, weight):
+        me = currentState.whoseTurn
+        myQueenHealth = currentState.inventories[me].getQueen().health
+        enemyQueenHealth = currentState.inventories[1 - me].getQueen().health
+        return weight * (myQueenHealth - enemyQueenHealth)
+
+
+    # Difference between my drones and enemy's drones
+    def droneCompare(self, currentState, weight):
+        me = currentState.whoseTurn
+        myDrones = getAntList(currentState, me, (DRONE,))
+        enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
+        return weight * (len(myDrones) - len(enemyDrones))
+
+
+    # Difference between my workers and enemy's workers
+    def workerCompare(self, currentState, weight):
+        me = currentState.whoseTurn
+        myWorkers = getAntList(currentState, me, (WORKER,))
+        enemyWorkers = getAntList(currentState, (1 - me), (WORKER,))
+        return weight * (len(myWorkers) - len(enemyWorkers))
+
+
+    # Difference between my soldiers and enemy's soldiers
+    def soldierCompare(self, currentState, weight):
+        me = currentState.whoseTurn
+        mySoldiers = getAntList(currentState, me, (SOLDIER,))
+        enemySoldiers = getAntList(currentState, (1 - me), (SOLDIER,))
+        return weight * (len(mySoldiers) - len(enemySoldiers))
+
+
+    # Comparing if me or enemy has more offensive capability
+    def offensiveCompare(self, currentState, weight):
+        myDrones = getAntList(currentState, me, (DRONE,))
+        mySoldiers = getAntList(currentState, me, (SOLDIER,))
+        myRSoldiers = getAntList(currentState, me, (R_SOLDIER,))
+        enemyDrones = getAntList(currentState, me, (DRONE,))
+        enemySoldiers = getAntList(currentState, me, (SOLDIER,))
+        enemyRSoldiers = getAntList(currentState, me, (R_SOLDIER,))
+
+        myOffense = len(myDrones) + len(mySoldiers) + len(myRSoldiers)
+        enemyOffense = len(enemyDrones) + len(enemySoldiers) + len(myRSoldiers)
+        if myOffense > enemyOffense:
+            return weight * 1
+        else:
+            return 0
+
+
+    # Average dist between enemy queen and my offensive ants
+    def attackingQueenDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        myDrones = getAntList(currentState, me, (DRONE,))
+        enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
+        for drone in myDrones:
+            stepsAway.append(approxDist(drone.coords, enemyQueenCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between my queen and enemy's offensive ants
+    def defendingQueenDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
+        myQueenCoords = currentState.inventories[me].getQueen().coords
+        for drone in enemyDrones:
+            stepsAway.append(approxDist(drone.coords, myQueenCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between enemy anthill and my offensive ants
+    def attackingAnthillDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        myDrones = getAntList(currentState, me, (DRONE,))
+        enemyAnthillCoords = getConstrList(currentState, (1 - me), (ANTHILL,))[0].coords
+        for drone in myDrones:
+            stepsAway.append(approxDist(drone.coords, enemyAnthillCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between my anthill and enemy's offensive ants
+    def defendingAnthillDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
+        myAnthillCoords = getConstrList(currentState, me, (ANTHILL,))[0].coords
+        for drone in enemyDrones:
+            stepsAway.append(approxDist(drone.coords, myAnthillCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between my workers and my queen
+    def workersFromQueen(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        myWorkers = getAntList(currentState, me, (WORKER,))
+        myQueenCoords = currentState.inventories[me].getQueen().coords
+        for worker in myWorkers:
+            stepsAway.append(approxDist(worker.coords, myQueenCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Distance between my queen and enemy queen
+    def queenSeparation(self, currentState, weight):
+        myQueenCoords = currentState.inventories[me].getQueen().coords
+        enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
+        return weight * approxDist(myQueenCoords, enemyQueenCoords)
+
+
+    def utility(self, currentState):
+        foodDiffScore = self.foodDiff(currentState, self.currPop[0])
+        queenDiffScore = self.queenHealthDiff(currentState, self.currPop[1])
+        droneDiffScore = self.droneCompare(currentState, self.currPop[2])
+        workerDiffScore = self.workerCompare(currentState, self.currPop[3])
+        soldierDiffScore = self.soldierCompare(currentState, self.currPop[4])
+        offenseScore = self.offensiveCompare(currentState, self.currPop[5])
+        queenAtkScore = self.attackingQueenDist(currentState, self.currPop[6])
+        queenDefScore = self.defendingQueenDist(currentState, self.currPop[7])
+        anthillAtkScore = self.attackingAnthillDist(currentState, self.currPop[8])
+        anthillDefScore = self.defendingAnthillDist(currentState, self.currPop[9])
+        queenDistScore = self.workersFromQueen(currentState, self.currPop[10])
+        queenSepScore = self.queenSeparation(currentState), self.currPop[11]
+
+        return foodDiffScore + queenDiffScore + droneDiffScore + workerDiffScore + soldierDiffScore \
+            + offenseScore + queenAtkScore + queenDefScore + anthillAtkScore + anthillDefScore \
+            + queenDistScore + queenSepScore
 
 
 class TestCreateNode(unittest.TestCase):
