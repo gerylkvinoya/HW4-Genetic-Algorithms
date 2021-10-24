@@ -146,18 +146,29 @@ class AIPlayer(Player):
         
         return newGene
 
-    def generateChildren(parent1, parent2):
+    ##
+    #generateChildren
+    #Description: Generates two children from two parents
+    #
+    #Parameters:
+    #   parent1 - the first parent gene
+    #   parent2 - the second parent gene
+    #
+    #Return: List of the new children
+    ##
+    def generateChildren(self, parent1, parent2):
+        #maybe make the children creation more random?
         listChildren = []
-        child1 = []
-        child2 = []
+        child1 = [None]*12
+        child2 = [None]*12
         slice1 = parent1[0:5]
         slice2 = parent2[6:11]
         slice3 = parent2[0:5]
         slice4 = parent1[6:11]
-        child1.append(slice1)
-        child1.append(slice2)
-        child2.append(slice3)
-        child2.append(slice4)
+        child1[0:5] = slice1
+        child1[6:11] = slice2
+        child2[0:5] = slice3
+        child2[6:11] = slice4
         listChildren.append(child1)
         listChildren.append(child2)
         return listChildren
@@ -641,6 +652,20 @@ class TestCreateNode(unittest.TestCase):
         for i in gene:
             self.assertAlmostEqual(i, 0, delta=10)
 
+    def test_generateChildren(self):
+        player = AIPlayer(0)
+        parent1 = player.initGene()
+        parent2 = player.initGene()
+
+        children = player.generateChildren(parent1, parent2)
+
+        child1 = children[0]
+        child2 = children[1]
+
+        self.assertEqual(child1[0:5], parent1[0:5])
+        self.assertEqual(child1[6:11], parent2[6:11])
+        self.assertEqual(child2[0:5], parent2[0:5])
+        self.assertEqual(child2[6:11], parent1[6:11])
 
 if __name__ == '__main__':
     unittest.main()
