@@ -41,15 +41,13 @@ class AIPlayer(Player):
     ##
     def __init__(self, inputPlayerId):
         super(AIPlayer,self).__init__(inputPlayerId, "Genetic")
-        self.populationSize = 8
-        self.currentPopulation = []
-        self.nextEval = None
-        self.currentFitness = []
+        self.popSize = 8
+        self.currPop = self.initPopulation()
+        self.nextEval = 1
+        self.currFit = []
         self.numGames = 20
         
 
-
-    
     ##
     #getPlacement
     #
@@ -106,6 +104,26 @@ class AIPlayer(Player):
     
 
     ##
+    #initGene
+    #Description: Method to initialize a gene
+    #             A gene is a list of ints displaying the values
+    #
+    #Parameters:
+    #   self
+    #
+    #Return: List of ints
+    ##
+    def initGene(self) -> List[int]:
+        newGene = [None]*15 #initialize a list with 15 empty spots
+        for i in range(0, 12, 1):
+            newGene[i] = random.uniform(-10.0, 10.0)
+
+        newGene[14] = 0
+        
+        return newGene
+
+
+    ##
     #initPopulation
     #Description: Method to initialize the population of genes
     #
@@ -122,36 +140,19 @@ class AIPlayer(Player):
             contents = f.read().splitlines()
             for line in contents:
                 gene = ast.literal_eval(line)
-                self.currentPopulation.append(gene)
-                self.currentFitness.append(gene[14])
+                self.currPop.append(gene)
+                self.currFit.append(gene[14])
             f.close()
         
         #initialize the gene list with random values from -10 to 10
         else:
-            for i in range(self.populationSize):
-                self.currentPopulation.append(self.initGene())
-                self.currentFitness.append(0)
+            for i in range(self.popSize):
+                self.currPop.append(self.initGene())
+                self.currFit.append(0)
 
-        self.nextEval = self.currentPopulation[0] #set to the first in the list
+        self.nextEval = 1 #set to the first in the list
+        return self.currPop
 
-    ##
-    #initGene
-    #Description: Method to initialize a gene
-    #             A gene is a list of ints displaying the values
-    #
-    #Parameters:
-    #   self
-    #
-    #Return: List of ints
-    ##
-    def initGene(self) -> List[int]:
-        newGene = [None]*15 #initialize a list with 15 empty spots
-        for i in range(0, 12, 1):
-            newGene[i] = random.randint(-10.0, 10.0)
-
-        newGene[14] = 0
-        
-        return newGene
 
     ##
     #generateChildren
@@ -198,12 +199,12 @@ class AIPlayer(Player):
 
         #select the top 4 in the population sorted by fitness
         
-        fittestParents = sorted(self.currentPopulation, key=lambda x: x[14])
+        fittestParents = sorted(self.currPop, key=lambda x: x[14])
 
         fittestParents = fittestParents[0:4]
 
-        #might need to fix the currentFitness list to reflect on this
-        #or the currentFitness list might not even be needed
+        #might need to fix the currFit list to reflect on this
+        #or the currFit list might not even be needed
 
         #will need to adjust for a larger population size
         #this gives us 24 children
@@ -213,7 +214,7 @@ class AIPlayer(Player):
                     for child in self.generateChildren(fittestParents[i], fittestParents[j]):
                         newGeneration.append(child)
 
-        self.currentPopulation = newGeneration
+        self.currPop = newGeneration
 
         f = open("vinoya21_grohm22_population.txt", "w")
         for gene in newGeneration:
@@ -395,13 +396,13 @@ class AIPlayer(Player):
     #
     def registerWin(self, hasWon):
         if hasWon:
-            self.currentPopulation[self.nextEval - 1][12] += 1
+            self.currPop[self.nextEval - 1][12] += 1
         else:
-            self.currentPopulation[self.nextEval - 1][13] += 1
-        self.currentPopulation[self.nextEval - 1][14] = self.currentPopulation[self.nextEval - 1][12] / self.currentPopulation[self.nextEval - 1][13]
-        if self.currentPopulation[self.nextEval - 1][12] + self.currentPopulation[self.nextEval - 1][13] == self.numGames:
+            self.currPop[self.nextEval - 1][13] += 1
+        self.currPop[self.nextEval - 1][14] = self.currPop[self.nextEval - 1][12] / self.currPop[self.nextEval - 1][13]
+        if self.currPop[self.nextEval - 1][12] + self.currPop[self.nextEval - 1][13] == self.numGames:
             self.nextEval += 1
-        if self.nextEval > self.populationSize:
+        if self.nextEval > self.popSize:
             self.nextGeneration()
             self.nextEval = 1
         pass
@@ -640,18 +641,18 @@ class AIPlayer(Player):
 
 
     def utility(self, currentState):
-        foodDiffScore = self.foodDiff(currentState, self.currPop[0])
-        queenDiffScore = self.queenHealthDiff(currentState, self.currPop[1])
-        droneDiffScore = self.droneCompare(currentState, self.currPop[2])
-        workerDiffScore = self.workerCompare(currentState, self.currPop[3])
-        soldierDiffScore = self.soldierCompare(currentState, self.currPop[4])
-        offenseScore = self.offensiveCompare(currentState, self.currPop[5])
-        queenAtkScore = self.attackingQueenDist(currentState, self.currPop[6])
-        queenDefScore = self.defendingQueenDist(currentState, self.currPop[7])
-        anthillAtkScore = self.attackingAnthillDist(currentState, self.currPop[8])
-        anthillDefScore = self.defendingAnthillDist(currentState, self.currPop[9])
-        queenDistScore = self.workersFromQueen(currentState, self.currPop[10])
-        queenSepScore = self.queenSeparation(currentState), self.currPop[11]
+        foodDiffScore = self.foodDiff(currentState, self.currPop[self.nextEval - 1][0])
+        queenDiffScore = self.queenHealthDiff(currentState, self.currPop[self.nextEval - 1][1])
+        droneDiffScore = self.droneCompare(currentState, self.currPop[self.nextEval - 1][2])
+        workerDiffScore = self.workerCompare(currentState, self.currPop[self.nextEval - 1][3])
+        soldierDiffScore = self.soldierCompare(currentState, self.currPop[self.nextEval - 1][4])
+        offenseScore = self.offensiveCompare(currentState, self.currPop[self.nextEval - 1][5])
+        queenAtkScore = self.attackingQueenDist(currentState, self.currPop[self.nextEval - 1][6])
+        queenDefScore = self.defendingQueenDist(currentState, self.currPop[self.nextEval - 1][7])
+        anthillAtkScore = self.attackingAnthillDist(currentState, self.currPop[self.nextEval - 1][8])
+        anthillDefScore = self.defendingAnthillDist(currentState, self.currPop[self.nextEval - 1][9])
+        queenDistScore = self.workersFromQueen(currentState, self.currPop[self.nextEval - 1][10])
+        queenSepScore = self.queenSeparation(currentState, self.currPop[self.nextEval - 1][11])
 
         return foodDiffScore + queenDiffScore + droneDiffScore + workerDiffScore + soldierDiffScore \
             + offenseScore + queenAtkScore + queenDefScore + anthillAtkScore + anthillDefScore \
@@ -800,14 +801,14 @@ class TestCreateNode(unittest.TestCase):
     def test_initPopulation(self):
         player = AIPlayer(0)
 
-        self.assertEqual(player.currentPopulation, [])
+        self.assertEqual(player.currPop, [])
         self.assertEqual(player.nextEval, None)
-        self.assertEqual(player.currentFitness, [])
+        self.assertEqual(player.currFit, [])
         self.assertEqual(player.numGames, 20)
         player.initPopulation()
-        self.assertNotEqual(player.currentPopulation, [])
-        self.assertNotEqual(player.currentFitness, [])
-        self.assertEqual(player.nextEval, player.currentPopulation[0])
+        self.assertNotEqual(player.currPop, [])
+        self.assertNotEqual(player.currFit, [])
+        self.assertEqual(player.nextEval, player.currPop[0])
 
     def test_initGene(self):
         player = AIPlayer(0)
@@ -840,11 +841,11 @@ class TestCreateNode(unittest.TestCase):
 
         player.initPopulation()
 
-        old = player.currentPopulation
+        old = player.currPop
 
         player.nextGeneration()
 
-        new = player.currentPopulation
+        new = player.currPop
 
         self.assertNotEqual(old, new)
 
