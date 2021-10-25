@@ -1,8 +1,8 @@
 ##
-# MiniMaxing Agent for HW 3
+# Genetic Algorithm Agent for HW 4
 # CS 421
 #
-# Authors: Geryl Vinoya and Samuel Nguyen
+# Authors: Geryl Vinoya and Matthew Groh
 ##
 import random
 import sys
@@ -40,14 +40,19 @@ class AIPlayer(Player):
     #   cpy           - whether the player is a copy (when playing itself)
     ##
     def __init__(self, inputPlayerId):
-        super(AIPlayer,self).__init__(inputPlayerId, "Genetic")
-        self.popSize = 8
+        super(AIPlayer,self).__init__(inputPlayerId, "Genetic_vinoya21_grohm22")
+        self.popSize = 8 #sets the INITIAL population size if no population file is given
         self.currFit = []
-        self.currPop = self.initPopulation()
         self.nextEval = 1
-        self.numGames = 20
+        self.numGames = 5
         self.numPlayed = 0
+
+        self.currPop = self.initPopulation()
         
+        while (self.currPop[self.nextEval-1][12] + self.currPop[self.nextEval-1][13]) >= self.numGames:
+                    self.nextEval += 1
+        
+        self.numPlayed = self.currPop[self.nextEval-1][12] + self.currPop[self.nextEval-1][13]
 
     ##
     #getPlacement
@@ -115,7 +120,7 @@ class AIPlayer(Player):
     #Return: List of ints
     ##
     def initGene(self) -> List[int]:
-        newGene = [None]*15 #initialize a list with 15 empty spots
+        newGene = [0]*15 #initialize a list with 15 empty spots
         for i in range(0, 12, 1):
             newGene[i] = random.uniform(-10.0, 10.0)
         return newGene
@@ -141,11 +146,19 @@ class AIPlayer(Player):
                 gene = ast.literal_eval(line)
                 pop.append(gene)
             f.close()
-        
         #initialize the gene list with random values from -10 to 10
         else:
             for i in range(self.popSize):
                 pop.append(self.initGene())
+
+            #after initializing new genes, put that in the text
+            f = open("vinoya21_grohm22_population.txt", "w")
+            f.truncate(0)
+            for gene in pop:
+                f.write(str(gene) + "\n")
+            f.close()
+
+            
 
         self.currFit.clear()
         for i in range(0, self.popSize + 1, 1):
@@ -167,8 +180,8 @@ class AIPlayer(Player):
     def generateChildren(self, parent1, parent2):
         #maybe make the children creation more random?
         listChildren = []
-        child1 = [None]*15
-        child2 = [None]*15
+        child1 = [0]*15
+        child2 = [0]*15
         slice1 = parent1[0:6]
         slice2 = parent2[6:12]
         slice3 = parent2[0:6]
@@ -200,11 +213,11 @@ class AIPlayer(Player):
 
         #select the top 4 in the population sorted by fitness
         
-        #fittestParents = sorted(self.currPop, key=lambda x: x[14])
-        fittestValues = sorted(currFit)
+        fittestParents = sorted(self.currPop, key=lambda x: x[14])
+        #fittestValues = sorted(self.currFit)
         fittestValues = fittestValues[0:4]
-        for value in fittestValues:
-            fittestParents.append(self.currPop[value])
+        #for value in fittestValues:
+           #fittestParents.append(self.currPop[value])
 
 
         #might need to fix the currFit list to reflect on this
@@ -218,12 +231,15 @@ class AIPlayer(Player):
                     for child in self.generateChildren(fittestParents[i], fittestParents[j]):
                         newGeneration.append(child)
 
+        newGeneration = newGeneration[:self.popSize]
+
         self.currPop.clear()
+
         for child in newGeneration:
             self.currPop.append(child)
 
-        f = open("vinoya21_grohm22_population.txt", "w")
-        f.truncate(0)
+        f = open("AI/vinoya21_grohm22_population.txt", "w")
+        f.truncate(0) 
         for gene in newGeneration:
             f.write(str(gene) + "\n")
         f.close()
@@ -398,180 +414,153 @@ class AIPlayer(Player):
 
     ##
     #registerWin
+    #Description: function to either update the next gene to be evaluated or
+    #             create a new generation of genes
+    #             this happens at the end of each game
     #
-    # This agent doens't learn
+    #Parameters:
+    #   currentState - current state
+    #   hasWon - boolean if the play has won or lost
     #
+    #Return: None
+    ##
     def registerWin(self, hasWon):
         # Update fitness score based on win/lose
         if hasWon:
             self.currFit[self.nextEval - 1] += 1
-        #else:
-            #self.currPop[self.nextEval - 1][13] += 1
+            self.currPop[self.nextEval - 1][12] += 1
+        else:
+            self.currPop[self.nextEval - 1][13] += 1
         self.numPlayed += 1
         self.currFit[self.nextEval - 1] = self.currFit[self.nextEval - 1] / self.numPlayed
 
-        if self.numPlayed  == self.numGames:
+        #Calculate the W/L ratio and store it in spot 14 of the gene
+        if self.currPop[self.nextEval - 1][13] == 0:
+            self.currPop[self.nextEval - 1][14] = self.currPop[self.nextEval - 1][12]
+        else:
+            self.currPop[self.nextEval - 1][14] = self.currPop[self.nextEval - 1][12] / self.currPop[self.nextEval - 1][13]
+        
+
+
+        if self.numPlayed  >= self.numGames:
             self.nextEval += 1
+            self.numPlayed = 0
+
         if self.nextEval > self.popSize:
             self.nextGeneration()
             self.nextEval = 1
+            self.numPlayed = 0
+        else:
+            f = open("AI/vinoya21_grohm22_population.txt", "w")
+            f.truncate(0)
+            for gene in self.currPop:
+                f.write(str(gene) + "\n")
+            f.close()
         pass
 
-
-
     ##
-    #utility
-    #Description: examines GameState object and returns a heuristic guess of how
-    #               "good" that game state is on a scale of 0 to 1
-    #
-    #               a player will win if his opponent’s queen is killed, his opponent's
-    #               anthill is captured, or if the player collects 11 units of food
+    #foodDiff
+    #Description: utility helper function for
+    #             difference in food between me and opponent
     #
     #Parameters:
-    #   currentState - The state of the current game waiting for the player's move (GameState)
+    #   currentState - current state
+    #   weight - given weight to multiply the value
     #
-    #Return: the "guess" of how good the game state is
+    #Return: The utility value
     ##
-    """def utility(self, currentState):
-        WEIGHT = 10 #weight value for moves
-
-        #will modify this toRet value based off of gamestate
-        toRet = 0
-
-        #get my id and enemy id
-        me = currentState.whoseTurn
-        enemy = 1 - me
-
-        #get the values of the anthill, tunnel, and foodcount
-        myTunnel = getConstrList(currentState, me, (TUNNEL,))[0]
-        myAnthill = getConstrList(currentState, me, (ANTHILL,))[0]
-        myFoodList = getConstrList(currentState, 2, (FOOD,))
-        enemyTunnel = getConstrList(currentState, enemy, (TUNNEL,))[0]
-
-        #get my soldiers and workers
-        mySoldiers = getAntList(currentState, me, (SOLDIER,))
-        myWorkerList = getAntList(currentState, me, (WORKER,))
-
-        #get enemy worker and queen
-        enemyWorkerList = getAntList(currentState, enemy, (WORKER,))
-        enemyQueenList = getAntList(currentState, enemy, (QUEEN,))
-
-        for worker in myWorkerList:
-
-            #if a worker is carrying food, go to tunnel
-            if worker.carrying:
-                tunnelDist = stepsToReach(currentState, worker.coords, myTunnel.coords)
-                #anthillDist = stepsToReach(currentState, worker.coords, myAnthill.coords)
-
-                #if tunnelDist <= anthillDist:
-                toRet = toRet + (1 / (tunnelDist + (4 * WEIGHT)))
-                #else:
-                    #toRet = toRet + (1 / (anthillDist + (4 * WEIGHT)))
-
-                #add to the eval if a worker is carrying food
-                toRet = toRet + (1 / WEIGHT)
-
-            #if a worker isn't carrying food, get to the food
-            else:
-                foodDist = 1000
-                for food in myFoodList:
-                    # Updates the distance if its less than the current distance
-                    dist = stepsToReach(currentState, worker.coords, food.coords)
-                    if (dist < foodDist):
-                        foodDist = dist
-                toRet = toRet + (1 / (foodDist + (4 * WEIGHT)))
-        
-        #try to get only 1 worker
-        if len(myWorkerList) == 1:
-            toRet = toRet + (2 / WEIGHT)
-        
-
-        #try to get only one soldier
-        if len(mySoldiers) == 1:
-            toRet = toRet + (WEIGHT * 0.2)
-            enemyWorkerLength = len(enemyWorkerList)
-            enemyQueenLength = len(enemyQueenList)
-            
-            #we want the soldier to go twoards the enemy tunnel/workers
-            if enemyWorkerList:
-                distToEnemyWorker = stepsToReach(currentState, mySoldiers[0].coords, enemyWorkerList[0].coords)
-                distToEnemyTunnel = stepsToReach(currentState, mySoldiers[0].coords, enemyTunnel.coords)
-                toRet = toRet + (1 / (distToEnemyWorker + (WEIGHT * 0.2))) + (1 / (distToEnemyTunnel + (WEIGHT * 0.5)))
-            
-            #reward the agent for killing enemy workers
-            #try to kill the queen if enemy workers dead
-            else:
-                toRet = toRet + (2 * WEIGHT)
-                if enemyQueenLength > 0:
-                    enemyQueenDist = stepsToReach(currentState, mySoldiers[0].coords, enemyQueenList[0].coords)
-                    toRet = toRet + (1 / (1 + enemyQueenDist))
-            
-
-            toRet = toRet + (1 / (enemyWorkerLength + 1)) + (1 / (enemyQueenLength + 1))
-
-        #try to get higher food score
-        foodCount = currentState.inventories[me].foodCount
-        toRet = toRet + foodCount
-
-        #set the correct bounds for the toRet
-        toRet = 1 - (1 / (toRet + 1))
-        if toRet <= 0:
-            toRet = 0.01
-        if toRet >= 1:
-            toRet = 0.99
-
-        #convert the previous score of [0,1] to [-1, 1]
-        if toRet == 0.5:
-            toRet = 0
-        elif toRet > 0.5:
-            toRet = (2 * toRet) - 1
-        elif toRet < 0.5:
-            toRet = -(1 - (2 * toRet))
-
-        return toRet"""
-
-
-    # Difference in food between me and opponent
     def foodDiff(self, currentState, weight):
         me = currentState.whoseTurn
         myFood = currentState.inventories[me].foodCount
         enemyFood = currentState.inventories[1 - me].foodCount
         return weight * (myFood - enemyFood)
 
-
-    # Difference in health between my queen and enemy queen
+    ##
+    #queenHealthDiff
+    #Description: utility helper function for
+    #             difference in health between my queen and enemy queen
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def queenHealthDiff(self, currentState, weight):
         me = currentState.whoseTurn
-        myQueenHealth = currentState.inventories[me].getQueen().health
-        enemyQueenHealth = currentState.inventories[1 - me].getQueen().health
+        myQueen = currentState.inventories[me].getQueen()
+        myQueenHealth = 0
+        if myQueen:
+            myQueenHealth = myQueen.health
+
+        enemyQueen = currentState.inventories[1 - me].getQueen()
+        enemyQueenHealth = 0
+        if enemyQueen:
+            enemyQueenHealth = enemyQueen.health
         return weight * (myQueenHealth - enemyQueenHealth)
 
-
-    # Difference between my drones and enemy's drones
+    ##
+    #droneCompare
+    #Description: utility helper function for
+    #             difference between my drones and enemy drones
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def droneCompare(self, currentState, weight):
         me = currentState.whoseTurn
         myDrones = getAntList(currentState, me, (DRONE,))
         enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
         return weight * (len(myDrones) - len(enemyDrones))
 
-
-    # Difference between my workers and enemy's workers
+    ##
+    #workerCompare
+    #Description: utility helper function for
+    #             difference between my workers and enemy workers
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def workerCompare(self, currentState, weight):
         me = currentState.whoseTurn
         myWorkers = getAntList(currentState, me, (WORKER,))
         enemyWorkers = getAntList(currentState, (1 - me), (WORKER,))
         return weight * (len(myWorkers) - len(enemyWorkers))
 
-
-    # Difference between my soldiers and enemy's soldiers
+    ##
+    #soldierCompare
+    #Description: utility helper function for
+    #             difference between my soldiers and enemy soldiers
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def soldierCompare(self, currentState, weight):
         me = currentState.whoseTurn
         mySoldiers = getAntList(currentState, me, (SOLDIER,))
         enemySoldiers = getAntList(currentState, (1 - me), (SOLDIER,))
         return weight * (len(mySoldiers) - len(enemySoldiers))
 
-
-    # Comparing if me or enemy has more offensive capability
+    ##
+    #offensiveCompare
+    #Description: utility helper function for
+    #             comparing if me or enemy has more offensive capability
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def offensiveCompare(self, currentState, weight):
         me = currentState.whoseTurn
         myDrones = getAntList(currentState, me, (DRONE,))
@@ -588,36 +577,71 @@ class AIPlayer(Player):
         else:
             return 0
 
-
-    # Average dist between enemy queen and my offensive ants
+    ##
+    #attackingQueenDist
+    #Description: utility helper function for
+    #             average distance between enemy queen and my offensive ants
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def attackingQueenDist(self, currentState, weight):
         stepsAway = []
         me = currentState.whoseTurn
         myDrones = getAntList(currentState, me, (DRONE,))
-        enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
-        for drone in myDrones:
-            stepsAway.append(approxDist(drone.coords, enemyQueenCoords))
-        if len(stepsAway) == 0:
-            return 0
-        else:
-            return weight * (sum(stepsAway) / len(stepsAway))
 
+        enemyQueen = currentState.inventories[1 - me].getQueen()
+        if enemyQueen:
+            enemyQueenCoords = enemyQueen.coords
+            for drone in myDrones:
+                stepsAway.append(approxDist(drone.coords, enemyQueenCoords))
+            if len(stepsAway) == 0:
+                return 0
+            else:
+                return weight * (sum(stepsAway) / len(stepsAway))
+        return 0
 
-    # Average dist between my queen and enemy's offensive ants
+    ##
+    #defendingQueenDist
+    #Description: utility helper function for
+    #             average distance between my queen and enemy offensive ants
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def defendingQueenDist(self, currentState, weight):
         stepsAway = []
         me = currentState.whoseTurn
         enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
-        myQueenCoords = currentState.inventories[me].getQueen().coords
-        for drone in enemyDrones:
-            stepsAway.append(approxDist(drone.coords, myQueenCoords))
-        if len(stepsAway) == 0:
-            return 0
-        else:
-            return weight * (sum(stepsAway) / len(stepsAway))
 
+        myQueen = currentState.inventories[me].getQueen()
+        if myQueen:       
+            myQueenCoords = myQueen.coords
+            for drone in enemyDrones:
+                stepsAway.append(approxDist(drone.coords, myQueenCoords))
+            if len(stepsAway) == 0:
+                return 0
+            else:
+                return weight * (sum(stepsAway) / len(stepsAway))
+        return 0
 
-    # Average dist between enemy anthill and my offensive ants
+    ##
+    #attackingAnthillDist
+    #Description: utility helper function for
+    #             average distance between enemy anthill and my offensive ants
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def attackingAnthillDist(self, currentState, weight):
         stepsAway = []
         me = currentState.whoseTurn
@@ -630,8 +654,17 @@ class AIPlayer(Player):
         else:
             return weight * (sum(stepsAway) / len(stepsAway))
 
-
-    # Average dist between my anthill and enemy's offensive ants
+    ##
+    #defendingAnthillDist
+    #Description: utility helper function for
+    #             average distance between my anthill and enemy offensive ants
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def defendingAnthillDist(self, currentState, weight):
         stepsAway = []
         me = currentState.whoseTurn
@@ -644,29 +677,64 @@ class AIPlayer(Player):
         else:
             return weight * (sum(stepsAway) / len(stepsAway))
 
-
-    # Average dist between my workers and my queen
+    ##
+    #workersFromQueen
+    #Description: utility helper function avg distanve between my workers and queen
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def workersFromQueen(self, currentState, weight):
         stepsAway = []
         me = currentState.whoseTurn
         myWorkers = getAntList(currentState, me, (WORKER,))
-        myQueenCoords = currentState.inventories[me].getQueen().coords
-        for worker in myWorkers:
-            stepsAway.append(approxDist(worker.coords, myQueenCoords))
-        if len(stepsAway) == 0:
-            return 0
-        else:
-            return weight * (sum(stepsAway) / len(stepsAway))
+
+        myQueen = currentState.inventories[me].getQueen()
+        if myQueen:
+            myQueenCoords = myQueen.coords
+            for worker in myWorkers:
+                stepsAway.append(approxDist(worker.coords, myQueenCoords))
+            if len(stepsAway) == 0:
+                return 0
+            else:
+                return weight * (sum(stepsAway) / len(stepsAway))
+        return 0
 
 
-    # Distance between my queen and enemy queen
+    ##
+    #queenSeparation
+    #Description: utility helper function for how far away the queens are
+    #
+    #Parameters:
+    #   currentState - current state
+    #   weight - given weight to multiply the value
+    #
+    #Return: The utility value
+    ##
     def queenSeparation(self, currentState, weight):
         me = currentState.whoseTurn
-        myQueenCoords = currentState.inventories[me].getQueen().coords
-        enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
-        return weight * approxDist(myQueenCoords, enemyQueenCoords)
+        myQueen = currentState.inventories[me].getQueen()
+        enemyQueen = currentState.inventories[1 - me].getQueen()
+        
+        if myQueen and enemyQueen:
+            myQueenCoords = currentState.inventories[me].getQueen().coords
+            enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
+            return weight * approxDist(myQueenCoords, enemyQueenCoords)
+        
+        return 0
 
-
+    ##
+    #utility
+    #Description: Method to return a value of how good a game state is
+    #
+    #Parameters:
+    #   currentState - current state
+    #
+    #Return: The utility value
+    ##
     def utility(self, currentState):
         foodDiffScore = self.foodDiff(currentState, self.currPop[self.nextEval - 1][0])
         queenDiffScore = self.queenHealthDiff(currentState, self.currPop[self.nextEval - 1][1])
@@ -685,9 +753,15 @@ class AIPlayer(Player):
             + offenseScore + queenAtkScore + queenDefScore + anthillAtkScore + anthillDefScore \
             + queenDistScore + queenSepScore
 
-
+##
+#TestCreateNode
+#Description: Unit tests for functions
+#
+#Variables:
+#   unittest.TestCase
+##
 class TestCreateNode(unittest.TestCase):
-    # Queens, anthills, and tunnels only.
+    # test for queens, anthills, and tunnels only.
     def test_utility_basic(self):
         player = AIPlayer(0)
 
@@ -710,9 +784,9 @@ class TestCreateNode(unittest.TestCase):
         #     toRet = (2 * toRet) - 1
         # elif toRet < 0.5:
         #     toRet = -(1 - (2 * toRet)) = -0.98
-        self.assertEqual(player.utility(gameState), -0.98)
+        #self.assertEqual(player.utility(gameState), -0.98)
 
-    # Worker and food added.
+    # test for worker and food.
     def test_utility_worker_and_food(self):
         player = AIPlayer(0)
 
@@ -754,9 +828,9 @@ class TestCreateNode(unittest.TestCase):
 
         # Help from https://stackoverflow.com/questions/33199548/how-to-perform-unittest-for-floating-point-outputs-python
         # assertAlmostEqual exists.
-        self.assertAlmostEqual(player.utility(gameState), -159/251)
+        #self.assertAlmostEqual(player.utility(gameState), -159/251)
 
-    # Soldier and enemy queen.
+    # test for soldier and enemy queen.
     def test_utility_soldier_and_queen(self):
         player = AIPlayer(0)
 
@@ -787,9 +861,9 @@ class TestCreateNode(unittest.TestCase):
         #     toRet = (2 * toRet) - 1 = 203/221
         # elif toRet < 0.5:
         #     toRet = -(1 - (2 * toRet))
-        self.assertAlmostEqual(player.utility(gameState), 203/221)
+        #self.assertAlmostEqual(player.utility(gameState), 203/221)
 
-    # Soldier and enemy worker.
+    # test for soldier and enemy worker.
     def test_utility_soldier_and_worker(self):
         player = AIPlayer(0)
 
@@ -823,20 +897,17 @@ class TestCreateNode(unittest.TestCase):
         #     toRet = (2 * toRet) - 1 = 6/11
         # elif toRet < 0.5:
         #     toRet = -(1 - (2 * toRet))
-        self.assertAlmostEqual(player.utility(gameState), 6/11)
+        #self.assertAlmostEqual(player.utility(gameState), 6/11)
 
+    # test initPopulation method
     def test_initPopulation(self):
         player = AIPlayer(0)
-
-        self.assertEqual(player.currPop, [])
-        self.assertEqual(player.nextEval, None)
-        self.assertEqual(player.currFit, [])
-        self.assertEqual(player.numGames, 20)
         player.initPopulation()
         self.assertNotEqual(player.currPop, [])
         self.assertNotEqual(player.currFit, [])
-        self.assertEqual(player.nextEval, player.currPop[0])
+        #self.assertEqual(player.nextEval, player.currPop[0])
 
+    #test initGene method
     def test_initGene(self):
         player = AIPlayer(0)
 
@@ -848,6 +919,7 @@ class TestCreateNode(unittest.TestCase):
 
         self.assertEqual(gene[14], 0)
 
+    #test generateChildren method
     def test_generateChildren(self):
         player = AIPlayer(0)
         parent1 = player.initGene()
@@ -863,6 +935,7 @@ class TestCreateNode(unittest.TestCase):
         self.assertEqual(child2[0:5], parent2[0:5])
         self.assertEqual(child2[6:11], parent1[6:11])
 
+    #test nextGeneration method
     def test_nextGeneration(self):
         player = AIPlayer (0)
 
