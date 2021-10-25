@@ -42,10 +42,11 @@ class AIPlayer(Player):
     def __init__(self, inputPlayerId):
         super(AIPlayer,self).__init__(inputPlayerId, "Genetic")
         self.popSize = 8
+        self.currFit = []
         self.currPop = self.initPopulation()
         self.nextEval = 1
-        self.currFit = []
         self.numGames = 20
+        self.numPlayed = 0
         
 
     ##
@@ -117,9 +118,6 @@ class AIPlayer(Player):
         newGene = [None]*15 #initialize a list with 15 empty spots
         for i in range(0, 12, 1):
             newGene[i] = random.uniform(-10.0, 10.0)
-
-        newGene[14] = 0
-        
         return newGene
 
 
@@ -133,6 +131,7 @@ class AIPlayer(Player):
     #Return: None
     ##
     def initPopulation(self):
+        pop = []
         #get the path for the population.txt file and read if it exists
         myPath = Path("./vinoya21_grohm22_population.txt")
         if myPath.is_file():
@@ -140,18 +139,19 @@ class AIPlayer(Player):
             contents = f.read().splitlines()
             for line in contents:
                 gene = ast.literal_eval(line)
-                self.currPop.append(gene)
-                self.currFit.append(gene[14])
+                pop.append(gene)
             f.close()
         
         #initialize the gene list with random values from -10 to 10
         else:
             for i in range(self.popSize):
-                self.currPop.append(self.initGene())
-                self.currFit.append(0)
+                pop.append(self.initGene())
 
+        self.currFit.clear()
+        for i in range(0, self.popSize + 1, 1):
+            self.currFit.append(0)
         self.nextEval = 1 #set to the first in the list
-        return self.currPop
+        return pop
 
 
     ##
@@ -194,14 +194,18 @@ class AIPlayer(Player):
     #Return: None
     ##
     def nextGeneration(self):
+        fittestValues = []
         fittestParents = []
         newGeneration = []
 
         #select the top 4 in the population sorted by fitness
         
-        fittestParents = sorted(self.currPop, key=lambda x: x[14])
+        #fittestParents = sorted(self.currPop, key=lambda x: x[14])
+        fittestValues = sorted(currFit)
+        fittestValues = fittestValues[0:4]
+        for value in fittestValues:
+            fittestParents.append(self.currPop[value])
 
-        fittestParents = fittestParents[0:4]
 
         #might need to fix the currFit list to reflect on this
         #or the currFit list might not even be needed
@@ -214,9 +218,12 @@ class AIPlayer(Player):
                     for child in self.generateChildren(fittestParents[i], fittestParents[j]):
                         newGeneration.append(child)
 
-        self.currPop = newGeneration
+        self.currPop.clear()
+        for child in newGeneration:
+            self.currPop.append(child)
 
         f = open("vinoya21_grohm22_population.txt", "w")
+        f.truncate(0)
         for gene in newGeneration:
             f.write(str(gene) + "\n")
         f.close()
@@ -395,12 +402,15 @@ class AIPlayer(Player):
     # This agent doens't learn
     #
     def registerWin(self, hasWon):
+        # Update fitness score based on win/lose
         if hasWon:
-            self.currPop[self.nextEval - 1][12] += 1
-        else:
-            self.currPop[self.nextEval - 1][13] += 1
-        self.currPop[self.nextEval - 1][14] = self.currPop[self.nextEval - 1][12] / self.currPop[self.nextEval - 1][13]
-        if self.currPop[self.nextEval - 1][12] + self.currPop[self.nextEval - 1][13] == self.numGames:
+            self.currFit[self.nextEval - 1] += 1
+        #else:
+            #self.currPop[self.nextEval - 1][13] += 1
+        self.numPlayed += 1
+        self.currFit[self.nextEval - 1] = self.currFit[self.nextEval - 1] / self.numPlayed
+
+        if self.numPlayed  == self.numGames:
             self.nextEval += 1
         if self.nextEval > self.popSize:
             self.nextGeneration()
@@ -563,6 +573,7 @@ class AIPlayer(Player):
 
     # Comparing if me or enemy has more offensive capability
     def offensiveCompare(self, currentState, weight):
+        me = currentState.whoseTurn
         myDrones = getAntList(currentState, me, (DRONE,))
         mySoldiers = getAntList(currentState, me, (SOLDIER,))
         myRSoldiers = getAntList(currentState, me, (R_SOLDIER,))
@@ -586,7 +597,10 @@ class AIPlayer(Player):
         enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
         for drone in myDrones:
             stepsAway.append(approxDist(drone.coords, enemyQueenCoords))
-        return weight * (sum(stepsAway) / len(stepsAway))
+        if len(stepsAway) == 0:
+            return 0
+        else:
+            return weight * (sum(stepsAway) / len(stepsAway))
 
 
     # Average dist between my queen and enemy's offensive ants
@@ -597,7 +611,10 @@ class AIPlayer(Player):
         myQueenCoords = currentState.inventories[me].getQueen().coords
         for drone in enemyDrones:
             stepsAway.append(approxDist(drone.coords, myQueenCoords))
-        return weight * (sum(stepsAway) / len(stepsAway))
+        if len(stepsAway) == 0:
+            return 0
+        else:
+            return weight * (sum(stepsAway) / len(stepsAway))
 
 
     # Average dist between enemy anthill and my offensive ants
@@ -608,7 +625,10 @@ class AIPlayer(Player):
         enemyAnthillCoords = getConstrList(currentState, (1 - me), (ANTHILL,))[0].coords
         for drone in myDrones:
             stepsAway.append(approxDist(drone.coords, enemyAnthillCoords))
-        return weight * (sum(stepsAway) / len(stepsAway))
+        if len(stepsAway) == 0:
+            return 0
+        else:
+            return weight * (sum(stepsAway) / len(stepsAway))
 
 
     # Average dist between my anthill and enemy's offensive ants
@@ -619,7 +639,10 @@ class AIPlayer(Player):
         myAnthillCoords = getConstrList(currentState, me, (ANTHILL,))[0].coords
         for drone in enemyDrones:
             stepsAway.append(approxDist(drone.coords, myAnthillCoords))
-        return weight * (sum(stepsAway) / len(stepsAway))
+        if len(stepsAway) == 0:
+            return 0
+        else:
+            return weight * (sum(stepsAway) / len(stepsAway))
 
 
     # Average dist between my workers and my queen
@@ -630,11 +653,15 @@ class AIPlayer(Player):
         myQueenCoords = currentState.inventories[me].getQueen().coords
         for worker in myWorkers:
             stepsAway.append(approxDist(worker.coords, myQueenCoords))
-        return weight * (sum(stepsAway) / len(stepsAway))
+        if len(stepsAway) == 0:
+            return 0
+        else:
+            return weight * (sum(stepsAway) / len(stepsAway))
 
 
     # Distance between my queen and enemy queen
     def queenSeparation(self, currentState, weight):
+        me = currentState.whoseTurn
         myQueenCoords = currentState.inventories[me].getQueen().coords
         enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
         return weight * approxDist(myQueenCoords, enemyQueenCoords)
