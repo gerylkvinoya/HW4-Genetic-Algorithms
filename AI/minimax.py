@@ -421,7 +421,7 @@ class AIPlayer(Player):
     #
     #Return: the "guess" of how good the game state is
     ##
-    def utility(self, currentState):
+    """def utility(self, currentState):
         WEIGHT = 10 #weight value for moves
 
         #will modify this toRet value based off of gamestate
@@ -517,7 +517,145 @@ class AIPlayer(Player):
         elif toRet < 0.5:
             toRet = -(1 - (2 * toRet))
 
-        return toRet
+        return toRet"""
+
+
+    # Difference in food between me and opponent
+    def foodDiff(self, currentState, weight):
+        me = currentState.whoseTurn
+        myFood = currentState.inventories[me].foodCount
+        enemyFood = currentState.inventories[1 - me].foodCount
+        return weight * (myFood - enemyFood)
+
+
+    # Difference in health between my queen and enemy queen
+    def queenHealthDiff(self, currentState, weight):
+        me = currentState.whoseTurn
+        myQueenHealth = currentState.inventories[me].getQueen().health
+        enemyQueenHealth = currentState.inventories[1 - me].getQueen().health
+        return weight * (myQueenHealth - enemyQueenHealth)
+
+
+    # Difference between my drones and enemy's drones
+    def droneCompare(self, currentState, weight):
+        me = currentState.whoseTurn
+        myDrones = getAntList(currentState, me, (DRONE,))
+        enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
+        return weight * (len(myDrones) - len(enemyDrones))
+
+
+    # Difference between my workers and enemy's workers
+    def workerCompare(self, currentState, weight):
+        me = currentState.whoseTurn
+        myWorkers = getAntList(currentState, me, (WORKER,))
+        enemyWorkers = getAntList(currentState, (1 - me), (WORKER,))
+        return weight * (len(myWorkers) - len(enemyWorkers))
+
+
+    # Difference between my soldiers and enemy's soldiers
+    def soldierCompare(self, currentState, weight):
+        me = currentState.whoseTurn
+        mySoldiers = getAntList(currentState, me, (SOLDIER,))
+        enemySoldiers = getAntList(currentState, (1 - me), (SOLDIER,))
+        return weight * (len(mySoldiers) - len(enemySoldiers))
+
+
+    # Comparing if me or enemy has more offensive capability
+    def offensiveCompare(self, currentState, weight):
+        myDrones = getAntList(currentState, me, (DRONE,))
+        mySoldiers = getAntList(currentState, me, (SOLDIER,))
+        myRSoldiers = getAntList(currentState, me, (R_SOLDIER,))
+        enemyDrones = getAntList(currentState, me, (DRONE,))
+        enemySoldiers = getAntList(currentState, me, (SOLDIER,))
+        enemyRSoldiers = getAntList(currentState, me, (R_SOLDIER,))
+
+        myOffense = len(myDrones) + len(mySoldiers) + len(myRSoldiers)
+        enemyOffense = len(enemyDrones) + len(enemySoldiers) + len(myRSoldiers)
+        if myOffense > enemyOffense:
+            return weight * 1
+        else:
+            return 0
+
+
+    # Average dist between enemy queen and my offensive ants
+    def attackingQueenDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        myDrones = getAntList(currentState, me, (DRONE,))
+        enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
+        for drone in myDrones:
+            stepsAway.append(approxDist(drone.coords, enemyQueenCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between my queen and enemy's offensive ants
+    def defendingQueenDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
+        myQueenCoords = currentState.inventories[me].getQueen().coords
+        for drone in enemyDrones:
+            stepsAway.append(approxDist(drone.coords, myQueenCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between enemy anthill and my offensive ants
+    def attackingAnthillDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        myDrones = getAntList(currentState, me, (DRONE,))
+        enemyAnthillCoords = getConstrList(currentState, (1 - me), (ANTHILL,))[0].coords
+        for drone in myDrones:
+            stepsAway.append(approxDist(drone.coords, enemyAnthillCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between my anthill and enemy's offensive ants
+    def defendingAnthillDist(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        enemyDrones = getAntList(currentState, (1 - me), (DRONE,))
+        myAnthillCoords = getConstrList(currentState, me, (ANTHILL,))[0].coords
+        for drone in enemyDrones:
+            stepsAway.append(approxDist(drone.coords, myAnthillCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Average dist between my workers and my queen
+    def workersFromQueen(self, currentState, weight):
+        stepsAway = []
+        me = currentState.whoseTurn
+        myWorkers = getAntList(currentState, me, (WORKER,))
+        myQueenCoords = currentState.inventories[me].getQueen().coords
+        for worker in myWorkers:
+            stepsAway.append(approxDist(worker.coords, myQueenCoords))
+        return weight * (sum(stepsAway) / len(stepsAway))
+
+
+    # Distance between my queen and enemy queen
+    def queenSeparation(self, currentState, weight):
+        myQueenCoords = currentState.inventories[me].getQueen().coords
+        enemyQueenCoords = currentState.inventories[1 - me].getQueen().coords
+        return weight * approxDist(myQueenCoords, enemyQueenCoords)
+
+
+    def utility(self, currentState):
+        foodDiffScore = self.foodDiff(currentState, self.currPop[0])
+        queenDiffScore = self.queenHealthDiff(currentState, self.currPop[1])
+        droneDiffScore = self.droneCompare(currentState, self.currPop[2])
+        workerDiffScore = self.workerCompare(currentState, self.currPop[3])
+        soldierDiffScore = self.soldierCompare(currentState, self.currPop[4])
+        offenseScore = self.offensiveCompare(currentState, self.currPop[5])
+        queenAtkScore = self.attackingQueenDist(currentState, self.currPop[6])
+        queenDefScore = self.defendingQueenDist(currentState, self.currPop[7])
+        anthillAtkScore = self.attackingAnthillDist(currentState, self.currPop[8])
+        anthillDefScore = self.defendingAnthillDist(currentState, self.currPop[9])
+        queenDistScore = self.workersFromQueen(currentState, self.currPop[10])
+        queenSepScore = self.queenSeparation(currentState), self.currPop[11]
+
+        return foodDiffScore + queenDiffScore + droneDiffScore + workerDiffScore + soldierDiffScore \
+            + offenseScore + queenAtkScore + queenDefScore + anthillAtkScore + anthillDefScore \
+            + queenDistScore + queenSepScore
 
 
 class TestCreateNode(unittest.TestCase):
