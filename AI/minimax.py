@@ -212,7 +212,7 @@ class AIPlayer(Player):
 
         #select the top 4 in the population sorted by fitness
         
-        fittestParents = sorted(self.currPop, key=lambda x: x[14])
+        fittestParents = sorted(self.currPop, key=lambda x: x[14], reverse=True)
         #fittestValues = sorted(self.currFit)
         fittestValues = fittestValues[0:4]
         #for value in fittestValues:
